@@ -56,6 +56,8 @@ type Router struct {
 	inboundByTag                       map[string]adapter.Inbound
 	outbounds                          []adapter.Outbound
 	outboundByTag                      map[string]adapter.Outbound
+	proxyProviders                     []adapter.ProxyProvider
+	proxyProviderByTag                 map[string]adapter.ProxyProvider
 	rules                              []adapter.Rule
 	defaultDetour                      string
 	defaultOutboundForConnection       adapter.Outbound
@@ -351,7 +353,7 @@ func NewRouter(
 	return router, nil
 }
 
-func (r *Router) Initialize(inbounds []adapter.Inbound, outbounds []adapter.Outbound, defaultOutbound func() adapter.Outbound) error {
+func (r *Router) Initialize(inbounds []adapter.Inbound, outbounds []adapter.Outbound, defaultOutbound func() adapter.Outbound, proxyProviders []adapter.ProxyProvider) error {
 	inboundByTag := make(map[string]adapter.Inbound)
 	for _, inbound := range inbounds {
 		inboundByTag[inbound.Tag()] = inbound
@@ -359,6 +361,13 @@ func (r *Router) Initialize(inbounds []adapter.Inbound, outbounds []adapter.Outb
 	outboundByTag := make(map[string]adapter.Outbound)
 	for _, detour := range outbounds {
 		outboundByTag[detour.Tag()] = detour
+	}
+	var proxyProviderByTag map[string]adapter.ProxyProvider
+	if len(proxyProviders) > 0 {
+		proxyProviderByTag = make(map[string]adapter.ProxyProvider)
+		for _, proxyProvider := range proxyProviders {
+			proxyProviderByTag[proxyProvider.Tag()] = proxyProvider
+		}
 	}
 	var defaultOutboundForConnection adapter.Outbound
 	var defaultOutboundForPacketConnection adapter.Outbound
@@ -430,6 +439,8 @@ func (r *Router) Initialize(inbounds []adapter.Inbound, outbounds []adapter.Outb
 			return E.New("outbound not found for rule[", i, "]: ", rule.Outbound())
 		}
 	}
+	r.proxyProviders = proxyProviders
+	r.proxyProviderByTag = proxyProviderByTag
 	return nil
 }
 
@@ -1116,6 +1127,17 @@ func (r *Router) updateWIFIState() {
 		r.wifiState = state
 		r.logger.Info("updated WIFI state: SSID=", state.SSID, ", BSSID=", state.BSSID)
 	}
+}
+
+func (r *Router) ProxyProviders() []adapter.ProxyProvider {
+	return r.proxyProviders
+}
+
+func (r *Router) ProxyProvider(tag string) (proxyProvider adapter.ProxyProvider, loaded bool) {
+	if r.proxyProviderByTag != nil {
+		proxyProvider, loaded = r.proxyProviderByTag[tag]
+	}
+	return
 }
 
 func (r *Router) Reload() {

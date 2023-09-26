@@ -20,6 +20,9 @@ type Router interface {
 	Outbound(tag string) (Outbound, bool)
 	DefaultOutbound(network string) Outbound
 
+	ProxyProviders() []ProxyProvider
+	ProxyProvider(tag string) (ProxyProvider, bool)
+
 	FakeIPStore() FakeIPStore
 
 	ConnectionRouter
