@@ -88,6 +88,7 @@ type Router struct {
 	platformInterface                  platform.Interface
 	needWIFIState                      bool
 	wifiState                          adapter.WIFIState
+	reloadChan                         chan<- struct{}
 }
 
 func NewRouter(
@@ -98,6 +99,7 @@ func NewRouter(
 	ntpOptions option.NTPOptions,
 	inbounds []option.Inbound,
 	platformInterface platform.Interface,
+	reloadChan chan<- struct{},
 ) (*Router, error) {
 	router := &Router{
 		ctx:                   ctx,
@@ -119,6 +121,7 @@ func NewRouter(
 		pauseManager:          pause.ManagerFromContext(ctx),
 		platformInterface:     platformInterface,
 		needWIFIState:         hasRule(options.Rules, isWIFIRule) || hasDNSRule(dnsOptions.Rules, isWIFIDNSRule),
+		reloadChan:            reloadChan,
 	}
 	router.dnsClient = dns.NewClient(dns.ClientOptions{
 		DisableCache:     dnsOptions.DNSClientOptions.DisableCache,
@@ -1083,5 +1086,14 @@ func (r *Router) updateWIFIState() {
 	if state != r.wifiState {
 		r.wifiState = state
 		r.logger.Info("updated WIFI state: SSID=", state.SSID, ", BSSID=", state.BSSID)
+	}
+}
+
+func (r *Router) Reload() {
+	if r.platformInterface == nil {
+		select {
+		case r.reloadChan <- struct{}{}:
+		default:
+		}
 	}
 }

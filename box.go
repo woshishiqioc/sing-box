@@ -34,6 +34,7 @@ type Box struct {
 	logger       log.ContextLogger
 	preServices  map[string]adapter.Service
 	postServices map[string]adapter.Service
+	reloadChan   chan struct{}
 	done         chan struct{}
 }
 
@@ -52,6 +53,7 @@ func New(options Options) (*Box, error) {
 	ctx = service.ContextWithDefaultRegistry(ctx)
 	ctx = pause.ContextWithDefaultManager(ctx)
 	createdAt := time.Now()
+	reloadChan := make(chan struct{}, 1)
 	experimentalOptions := common.PtrValueOrDefault(options.Experimental)
 	applyDebugOptions(common.PtrValueOrDefault(experimentalOptions.Debug))
 	var needClashAPI bool
@@ -85,6 +87,7 @@ func New(options Options) (*Box, error) {
 		common.PtrValueOrDefault(options.NTP),
 		options.Inbounds,
 		options.PlatformInterface,
+		reloadChan,
 	)
 	if err != nil {
 		return nil, E.Cause(err, "parse route options")
@@ -174,6 +177,7 @@ func New(options Options) (*Box, error) {
 		logger:       logFactory.Logger(),
 		preServices:  preServices,
 		postServices: postServices,
+		reloadChan:   reloadChan,
 		done:         make(chan struct{}),
 	}, nil
 }
@@ -330,4 +334,8 @@ func (s *Box) Close() error {
 
 func (s *Box) Router() adapter.Router {
 	return s.router
+}
+
+func (s *Box) ReloadChan() <-chan struct{} {
+	return s.reloadChan
 }
